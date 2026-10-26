@@ -262,6 +262,7 @@ export function Chat({
                 <div
                   className={cn(
                     "max-w-[78%] overflow-hidden rounded-2xl text-[15px] leading-snug",
+                    m.media && !m.deleted && "w-64 sm:w-72",
                     m.deleted
                       ? "border border-dashed border-border px-3.5 py-2 text-sm text-muted italic"
                       : mine
@@ -275,7 +276,7 @@ export function Chat({
                   ) : (
                     <>
                       {m.media && (
-                        <button onClick={() => setZoom(m.media!.url)} className="block" aria-label="View image">
+                        <button onClick={() => setZoom(m.media!.url)} className="block w-full" aria-label="View image">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={imageUrl(m.media.url, 600)} alt="" className="max-h-80 w-full object-cover" />
                         </button>

@@ -19,7 +19,8 @@ export async function getSuggestedArtists(viewerId: string | null, take = 4) {
       ]
     : [];
   return db.user.findMany({
-    where: { id: { notIn: exclude }, bannedAt: null, deactivatedAt: null },
+    // Only suggest people who have shared something.
+    where: { id: { notIn: exclude }, bannedAt: null, deactivatedAt: null, posts: { some: { status: "PUBLISHED", repostOfId: null } } },
     select: { ...userMiniSelect, headline: true },
     orderBy: [{ verified: "desc" }, { followers: { _count: "desc" } }, { createdAt: "desc" }],
     take,
