@@ -1,0 +1,602 @@
+// OAACI database schema (PostgreSQL)
+// Run `npm run db:migrate` after changing this file.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum DmPolicy {
+  EVERYONE
+  FOLLOWING
+}
+
+enum TokenType {
+  VERIFY_EMAIL
+  RESET_PASSWORD
+  CHANGE_EMAIL
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+  AUDIO
+}
+
+enum PostStatus {
+  PUBLISHED
+  HIDDEN // held for moderator review
+  REMOVED // removed by a moderator
+}
+
+enum NotificationType {
+  STAR
+  COMMENT
+  REPOST
+  FOLLOW
+  MENTION
+  VERIFIED
+  VERIFICATION_REJECTED
+  CONTENT_REMOVED
+  SYSTEM
+}
+
+enum ReportTarget {
+  POST
+  COMMENT
+  USER
+  LISTING
+  MESSAGE
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE
+  NUDITY
+  VIOLENCE
+  COPYRIGHT
+  IMPERSONATION
+  SCAM
+  UNDERAGE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  ACTIONED
+  DISMISSED
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  ARCHIVED
+  REMOVED
+}
+
+enum ProfileEntryKind {
+  EXHIBITION
+  EXPERIENCE
+  EDUCATION
+  AWARD
+}
+
+enum AdPlacement {
+  FEED
+  SIDEBAR
+}
+
+enum WaitlistStatus {
+  PENDING
+  INVITED
+  REJECTED
+}
+
+// ─── Accounts ───────────────────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(cuid())
+  email             String?   @unique // always lowercase
+  emailVerifiedAt   DateTime?
+  phone             String?   @unique // E.164, e.g. +919876543210
+  phoneVerifiedAt   DateTime?
+  passwordHash      String?
+  googleId          String?   @unique
+  username          String    @unique // always lowercase
+  usernameChangedAt DateTime?
+  name              String
+  headline          String?
+  bio               String?
+  website           String?
+  avatarUrl         String?
+  coverUrl          String?
+  disciplines       String[]  @default([])
+  openToCommissions Boolean   @default(false)
+  dateOfBirth       DateTime  @db.Date // private, used for the 18+ check only
+  role              Role      @default(USER)
+  verified          Boolean   @default(false) // verified artist badge
+  verifiedAt        DateTime?
+  dmPolicy          DmPolicy  @default(EVERYONE)
+  bannedAt          DateTime?
+  banReason         String?
+  deactivatedAt     DateTime?
+  invitedById       String?
+  inviteId          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  invitedBy User?   @relation("InvitedUsers", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitees  User[]  @relation("InvitedUsers")
+  invite    Invite? @relation("InviteUses", fields: [inviteId], references: [id], onDelete: SetNull)
+
+  sessions             Session[]
+  tokens               Token[]
+  media                Media[]
+  posts                Post[]
+  stars                Star[]
+  comments             Comment[]
+  following            Follow[]              @relation("Follower")
+  followers            Follow[]              @relation("Following")
+  blocking             Block[]               @relation("Blocker")
+  blockedBy            Block[]               @relation("Blocked")
+  muting               Mute[]                @relation("Muter")
+  mutedBy              Mute[]                @relation("Muted")
+  notifications        Notification[]        @relation("NotificationRecipient")
+  actedNotifications   Notification[]        @relation("NotificationActor")
+  conversationMembers  ConversationMember[]
+  messages             Message[]
+  listings             Listing[]
+  profileEntries       ProfileEntry[]
+  createdInvites       Invite[]              @relation("InviteCreator")
+  verificationRequests VerificationRequest[] @relation("VerificationApplicant")
+  reviewedVerifications VerificationRequest[] @relation("VerificationReviewer")
+  reports              Report[]              @relation("Reporter")
+  resolvedReports      Report[]              @relation("Resolver")
+  auditLogs            AuditLog[]
+
+  @@index([createdAt])
+  @@index([name])
+}
+
+model Session {
+  id        String   @id // sha256 of the cookie token
+  userId    String
+  expiresAt DateTime
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Token {
+  id        String    @id @default(cuid())
+  userId    String
+  type      TokenType
+  tokenHash String    @unique
+  data      String? // e.g. the new email for CHANGE_EMAIL
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model PhoneOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  createdById String?
+  maxUses     Int       @default(1)
+  usedCount   Int       @default(0)
+  expiresAt   DateTime?
+  note        String?
+  disabled    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  createdBy User?  @relation("InviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  usedBy    User[] @relation("InviteUses")
+
+  @@index([createdById])
+}
+
+model WaitlistEntry {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String
+  portfolioUrl String?
+  message      String?
+  status       WaitlistStatus @default(PENDING)
+  invitedAt    DateTime?
+  createdAt    DateTime       @default(now())
+
+  @@index([status, createdAt])
+}
+
+// ─── Content ────────────────────────────────────────────────────────────
+
+model Media {
+  id           String    @id @default(cuid())
+  ownerId      String
+  kind         MediaKind
+  provider     String // "cloudinary" | "local"
+  url          String
+  publicId     String?
+  thumbnailUrl String?
+  width        Int?
+  height       Int?
+  duration     Float?
+  bytes        Int
+  format       String?
+  flagged      Boolean   @default(false) // automatic moderation says explicit
+  sensitive    Boolean   @default(false) // automatic moderation says suggestive
+  createdAt    DateTime  @default(now())
+
+  owner         User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  posts         Post[]         @relation("PostMedia")
+  coverPosts    Post[]         @relation("PostCover")
+  messages      Message[]
+  listingImages ListingImage[]
+
+  @@index([ownerId, createdAt])
+}
+
+model Post {
+  id           String     @id @default(cuid())
+  authorId     String
+  text         String     @default("")
+  mediaId      String?
+  coverMediaId String? // optional cover art for songs
+  trackTitle   String? // title for songs
+  sensitive    Boolean    @default(false)
+  status       PostStatus @default(PUBLISHED)
+  repostOfId   String?
+  starCount    Int        @default(0)
+  commentCount Int        @default(0)
+  repostCount  Int        @default(0)
+  viewCount    Int        @default(0)
+  editedAt     DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  author     User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  media      Media?        @relation("PostMedia", fields: [mediaId], references: [id], onDelete: SetNull)
+  coverMedia Media?        @relation("PostCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  repostOf   Post?         @relation("Reposts", fields: [repostOfId], references: [id], onDelete: Cascade)
+  reposts    Post[]        @relation("Reposts")
+  stars      Star[]
+  comments   Comment[]
+  hashtags   PostHashtag[]
+  views      PostView[]
+
+  @@unique([authorId, repostOfId])
+  @@index([authorId, createdAt])
+  @@index([status, createdAt])
+  @@index([repostOfId])
+}
+
+model Star {
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  text      String
+  createdAt DateTime @default(now())
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+}
+
+model Hashtag {
+  id        String   @id @default(cuid())
+  name      String   @unique // lowercase, without the #
+  createdAt DateTime @default(now())
+
+  posts PostHashtag[]
+}
+
+model PostHashtag {
+  postId    String
+  hashtagId String
+  createdAt DateTime @default(now())
+
+  post    Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, hashtagId])
+  @@index([hashtagId, createdAt])
+}
+
+model PostView {
+  postId    String
+  viewerKey String // user id, or "anon:<id>" for logged-out visitors
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([postId, viewerKey])
+}
+
+// ─── Social graph ───────────────────────────────────────────────────────
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model Block {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model Mute {
+  muterId   String
+  mutedId   String
+  createdAt DateTime @default(now())
+
+  muter User @relation("Muter", fields: [muterId], references: [id], onDelete: Cascade)
+  muted User @relation("Muted", fields: [mutedId], references: [id], onDelete: Cascade)
+
+  @@id([muterId, mutedId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  actorId   String?
+  type      NotificationType
+  postId    String?
+  commentId String?
+  text      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user  User  @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+// ─── Messaging ──────────────────────────────────────────────────────────
+
+model Conversation {
+  id            String   @id @default(cuid())
+  pairKey       String   @unique // "<smallerUserId>:<largerUserId>"
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  members  ConversationMember[]
+  messages Message[]
+}
+
+model ConversationMember {
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  typingUntil    DateTime?
+  clearedAt      DateTime? // messages before this are hidden for this member
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  text           String    @default("")
+  mediaId        String?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  media        Media?       @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+}
+
+// ─── Portfolio & marketplace ────────────────────────────────────────────
+
+model ProfileEntry {
+  id           String           @id @default(cuid())
+  userId       String
+  kind         ProfileEntryKind
+  title        String
+  organization String?
+  startYear    Int?
+  endYear      Int?
+  current      Boolean          @default(false)
+  description  String?
+  url          String?
+  createdAt    DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Listing {
+  id          String        @id @default(cuid())
+  sellerId    String
+  title       String
+  description String
+  priceInr    Int
+  category    String
+  medium      String?
+  dimensions  String?
+  status      ListingStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  seller User           @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  images ListingImage[]
+
+  @@index([status, createdAt])
+  @@index([sellerId])
+  @@index([category, status])
+}
+
+model ListingImage {
+  listingId String
+  mediaId   String
+  position  Int
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  media   Media   @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, mediaId])
+}
+
+// ─── Trust & safety ─────────────────────────────────────────────────────
+
+model VerificationRequest {
+  id           String             @id @default(cuid())
+  userId       String
+  message      String
+  links        String[]           @default([])
+  status       VerificationStatus @default(PENDING)
+  reviewNote   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime           @default(now())
+
+  user       User  @relation("VerificationApplicant", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("VerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+model Report {
+  id           String       @id @default(cuid())
+  reporterId   String?
+  targetType   ReportTarget
+  targetId     String
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(OPEN)
+  resolvedById String?
+  resolution   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+
+  reporter   User? @relation("Reporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  resolvedBy User? @relation("Resolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  targetType String?
+  targetId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+// ─── Ads & site settings ────────────────────────────────────────────────
+
+model Ad {
+  id          String      @id @default(cuid())
+  title       String
+  body        String?
+  imageUrl    String?
+  linkUrl     String
+  ctaLabel    String?
+  advertiser  String
+  placement   AdPlacement @default(FEED)
+  active      Boolean     @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  impressions Int         @default(0)
+  clicks      Int         @default(0)
+  createdAt   DateTime    @default(now())
+
+  @@index([active, placement])
+}
+
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+}
