@@ -69,16 +69,49 @@ These match Cloudinary's free plan (10 MB images, 100 MB videos) and can be chan
 
 ## Run it on your computer
 
-You need **Node.js 20.9+** and **PostgreSQL 14+** (or a free cloud Postgres such as Neon — see below).
+Works on Windows, macOS and Linux. Takes about 15 minutes the first time.
+
+**1. Install Node.js** — download the **LTS** version from [nodejs.org](https://nodejs.org) and install it with the default options. Check it worked by opening a terminal and typing `node -v` (you need 20.9 or newer).
+
+**2. Get the code** — on GitHub click **Code → Download ZIP** and unzip it, or run `git clone https://github.com/alpraxo07/OAACI.git`.
+
+**3. Get a database** — pick one:
+- **Easiest (nothing to install):** create a free project at [neon.tech](https://neon.tech). On the dashboard click **Connect**, turn **Connection pooling off**, and copy the connection string (it starts with `postgresql://`).
+- **On your computer:** install PostgreSQL ([Windows/macOS installers](https://www.postgresql.org/download/), or [Postgres.app](https://postgresapp.com) on a Mac). Remember the password you choose. Your connection string is `postgresql://postgres:YOUR_PASSWORD@localhost:5432/oaaci`.
+
+**4. Open a terminal in the project folder** — Windows: open the folder, right-click an empty space → **Open in Terminal**. macOS: open Terminal, type `cd ` and drag the folder onto the window, then press Enter.
+
+**5. Create your settings file**
 
 ```bash
-git clone https://github.com/alpraxo07/OAACI.git
-cd OAACI
-npm install
-cp .env.example .env        # then edit .env (at least DATABASE_URL, DIRECT_URL, SESSION_SECRET, ADMIN_EMAILS)
-npm run db:migrate          # creates the tables
-npm run dev                 # http://localhost:3000
+# Windows
+copy .env.example .env
+# macOS / Linux
+cp .env.example .env
 ```
+
+Open `.env` in any text editor (Notepad is fine) and set:
+- `DATABASE_URL` and `DIRECT_URL` — both to the connection string from step 3
+- `ADMIN_EMAILS` — your own email address
+
+Leave everything else empty for now.
+
+**6. Install, create the tables, start**
+
+```bash
+npm install
+npm run db:migrate
+npm run dev
+```
+
+**7. Open [http://localhost:3000](http://localhost:3000)** and click **Join OAACI**. Sign up with the email you put in `ADMIN_EMAILS` — you don't need an invite code. The "confirm your email" link is printed **in the terminal** (no real email is sent yet): copy it into your browser and you're the admin.
+
+To stop the app press **Ctrl + C** in the terminal. Next time you only need `npm run dev`.
+
+**If something goes wrong**
+- `Can't reach database server` — check the connection string in `.env` (and that PostgreSQL is running, if it's on your computer).
+- `Port 3000 is in use` — run `npm run dev -- -p 3001` and open http://localhost:3001 (also set `APP_URL="http://localhost:3001"` in `.env` so email links point to the right place).
+- `'npm' is not recognized` — close and reopen the terminal after installing Node.js.
 
 Without Cloudinary, SMTP or Twilio keys the app still works locally:
 - uploads are saved to `public/uploads`,
