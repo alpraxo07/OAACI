@@ -91,7 +91,6 @@ export async function confirmCloudinaryUpload(ownerId: string, kind: MediaKind, 
   const expected = sha1(`public_id=${r.public_id}&version=${r.version}${env.cloudinary.apiSecret}`);
   if (expected !== r.signature) throw new UserError("Upload could not be verified. Please try again.");
   if (r.resource_type !== resourceType(kind)) throw new UserError("Unexpected file type.");
-  if (!r.public_id.startsWith("oaaci/")) throw new UserError("Upload could not be verified.");
 
   const format = r.format ?? null;
   const duration = r.duration ?? null;

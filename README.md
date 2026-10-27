@@ -128,36 +128,95 @@ Then open **Admin → Invites** to create invite codes for your first artists, o
 
 ## Deploy for free
 
-All of these have free plans that are enough to launch an invite-only community.
+About an hour the first time. You'll create four free accounts, collect some keys, paste them into Vercel and deploy. Keep a notes file open to collect the values as you go.
 
-### 1. Database — Neon (or Supabase)
-1. Create a project at [neon.tech](https://neon.tech).
-2. Copy the **pooled** connection string into `DATABASE_URL` and the **direct** (non-pooled) one into `DIRECT_URL`.
+> **Free plan rule:** Vercel's free (Hobby) plan is for **non-commercial** use. An invite-only beta is fine, but before you run ads or earn money from OAACI, upgrade the Vercel project to **Pro** (about US$20/month). Check [Vercel's fair use guidelines](https://vercel.com/docs/limits/fair-use-guidelines) if unsure.
 
-### 2. Media — Cloudinary
-1. Sign up at [cloudinary.com](https://cloudinary.com).
-2. From the dashboard copy **Cloud name**, **API key** and **API secret** into `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+### Step 1 — Database: Neon
+1. Sign up at [neon.tech](https://neon.tech) (you can use your GitHub account).
+2. Create a project named `oaaci`. For **Region** choose **AWS Asia Pacific (Singapore)** — the site runs in Singapore too (see `vercel.json`), which keeps pages fast.
+3. On the project dashboard click **Connect**.
+   - With **Connection pooling ON**, copy the string → this is `DATABASE_URL` (its host contains `-pooler`).
+   - Turn **Connection pooling OFF**, copy again → this is `DIRECT_URL`.
 
-### 3. Email — Brevo (300 emails/day free) or any SMTP
-1. Sign up at [brevo.com](https://www.brevo.com) → *SMTP & API* → create an SMTP key.
-2. Set `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=587`, `SMTP_USER`, `SMTP_PASSWORD`, and `EMAIL_FROM="OAACI <no-reply@yourdomain.com>"` (verify the sender in Brevo).
+### Step 2 — Photos, videos and songs: Cloudinary
+1. Sign up at [cloudinary.com](https://cloudinary.com) (free plan).
+2. Open **Settings → API Keys** (or the dashboard) and copy **Cloud name**, **API Key** and **API Secret** → `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 
-### 4. Real-time chat — Pusher (optional but recommended)
-1. Create a **Channels** app at [pusher.com](https://pusher.com) (cluster `ap2` = Mumbai).
-2. Set `PUSHER_APP_ID`, `PUSHER_SECRET`, `NEXT_PUBLIC_PUSHER_KEY`, `NEXT_PUBLIC_PUSHER_CLUSTER`.
+### Step 3 — Email: Gmail (simplest to start)
+OAACI sends verification, password-reset and invite emails.
+1. Your Google account needs **2-Step Verification** turned on ([myaccount.google.com/security](https://myaccount.google.com/security)).
+2. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), create an app password named `OAACI`, and copy the 16 letters (without spaces).
+3. Your values: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=465`, `SMTP_USER=` your Gmail address, `SMTP_PASSWORD=` the 16 letters, `EMAIL_FROM="OAACI <your Gmail address>"`.
 
-### 5. Hosting — Vercel
-1. Import the GitHub repo at [vercel.com/new](https://vercel.com/new).
-2. Add every variable from `.env.example` under *Settings → Environment Variables*. Set `APP_URL` to your site URL (e.g. `https://oaaci.vercel.app`) and generate `SESSION_SECRET` with `openssl rand -base64 32`.
-3. Set the **Build Command** to `npm run db:deploy && npm run build` so database migrations run on each deploy.
-4. Deploy. Sign up with the email you put in `ADMIN_EMAILS`.
+Gmail allows about 500 emails a day. When you buy your own domain, switch to [Brevo](https://www.brevo.com) or [Resend](https://resend.com) so emails come from `no-reply@yourdomain`.
+
+### Step 4 — Instant chat: Pusher (optional, recommended)
+Without it, chat still works but checks for new messages every few seconds.
+1. Sign up at [pusher.com](https://pusher.com) → **Channels** → **Create app**. Name it `oaaci`, cluster **ap2 (Mumbai)**.
+2. Open **App Keys** and copy `app_id`, `key`, `secret`, `cluster` → `PUSHER_APP_ID`, `NEXT_PUBLIC_PUSHER_KEY`, `PUSHER_SECRET`, `NEXT_PUBLIC_PUSHER_CLUSTER`.
+
+### Step 5 — A secret key
+`SESSION_SECRET` protects logins. Generate one with Node.js:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+(Or type any random 40+ characters. Never share it.)
+
+### Step 6 — Hosting: Vercel
+1. Sign up at [vercel.com](https://vercel.com) **with your GitHub account** and allow it to see the `OAACI` repository.
+2. Click **Add New → Project**, pick `OAACI`, click **Import**. Leave the framework (Next.js) and build settings as they are — `vercel.json` already sets the build command, which also creates the database tables.
+3. Open **Environment Variables** and add (you can paste several `NAME=value` lines at once):
+   ```
+   DATABASE_URL=...           (Neon, pooled)
+   DIRECT_URL=...             (Neon, direct)
+   SESSION_SECRET=...
+   ADMIN_EMAILS=you@gmail.com
+   CLOUDINARY_CLOUD_NAME=...
+   CLOUDINARY_API_KEY=...
+   CLOUDINARY_API_SECRET=...
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_USER=you@gmail.com
+   SMTP_PASSWORD=...
+   EMAIL_FROM=OAACI <you@gmail.com>
+   PUSHER_APP_ID=...
+   PUSHER_SECRET=...
+   NEXT_PUBLIC_PUSHER_KEY=...
+   NEXT_PUBLIC_PUSHER_CLUSTER=ap2
+   ```
+4. Click **Deploy** and wait for the confetti (2–4 minutes).
+
+### Step 7 — Tell OAACI its address
+1. Copy your site address from Vercel (for example `https://oaaci.vercel.app`).
+2. In the project go to **Settings → Environment Variables**, add `APP_URL` with that address (no `/` at the end).
+3. Go to **Deployments**, open the ⋯ menu on the latest one and click **Redeploy**.
+
+Email links and Google login use `APP_URL`, so do this before anyone signs up.
+
+### Step 8 — Become the admin and invite artists
+1. Open your site and click **Join OAACI**. Sign up with the email in `ADMIN_EMAILS` (no invite code needed).
+2. Click the link in the confirmation email (check spam the first time). You now see **Admin** in the menu.
+3. **Admin → Site settings** shows which services are connected. **Admin → Invites** creates invite codes for your first artists.
+4. Quick test: post a photo, then sign up a second account in a private window with an invite code and send yourself a message.
+
+### Every update after this
+Push changes to the `main` branch on GitHub and Vercel deploys them automatically.
 
 ### Optional extras
+- **Your own domain** (e.g. `oaaci.in`, bought from any registrar): Vercel → **Settings → Domains** → add it and follow the DNS instructions, then change `APP_URL` and redeploy.
 - **Google login** — create an OAuth client at [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (type *Web application*), add `{APP_URL}/api/auth/google/callback` as an authorised redirect URI, then set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 - **Phone OTP** — SMS is not free. With a [Twilio](https://www.twilio.com) account set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM`. (Sending SMS to Indian numbers may require DLT registration.) Without it, phone login is hidden in production.
 - **Image moderation** — [Sightengine](https://sightengine.com) free tier: set `SIGHTENGINE_API_USER` and `SIGHTENGINE_API_SECRET`.
 
-*Admin → Site settings* shows which of these services are connected.
+### Free plan limits (roughly)
+| Service | Free allowance |
+| --- | --- |
+| Neon | 0.5 GB database |
+| Cloudinary | 25 credits/month (1 credit ≈ 1 GB stored or 1 GB viewed) |
+| Gmail | ~500 emails/day |
+| Pusher | 200,000 messages/day, 100 people connected at once |
+| Vercel Hobby | Non-commercial use; generous traffic for a beta |
 
 ---
 
