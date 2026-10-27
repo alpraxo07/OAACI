@@ -13,9 +13,22 @@ if (isProd && (!sessionSecret || sessionSecret.length < 32)) {
   console.warn("[oaaci] SESSION_SECRET is missing or shorter than 32 characters.");
 }
 
+/**
+ * The site's public address, used in email links and the Google login redirect.
+ * On Vercel, falls back to the project's production domain (custom domain if one is added).
+ */
+const vercelDomain = value("VERCEL_PROJECT_PRODUCTION_URL");
+const appUrlSource = value("APP_URL") ? "APP_URL" : vercelDomain ? "vercel" : "default";
+if (isProd && appUrlSource === "default") {
+  console.warn("[oaaci] APP_URL is not set, so email links will point to http://localhost:3000.");
+}
+
 export const env = {
   isProd,
-  appUrl: (value("APP_URL") ?? "http://localhost:3000").replace(/\/$/, ""),
+  appUrl: (value("APP_URL") ?? vercelDomain ?? "http://localhost:3000")
+    .replace(/^(?!https?:\/\/)/i, "https://")
+    .replace(/\/+$/, ""),
+  appUrlSource,
   sessionSecret: sessionSecret ?? "dev-only-insecure-secret-change-me-please",
   adminEmails: (value("ADMIN_EMAILS") ?? "")
     .split(/[,;\s]+/)

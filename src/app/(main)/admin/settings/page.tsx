@@ -33,6 +33,21 @@ export default async function AdminSettingsPage() {
         <h2 className="section-title">Connected services</h2>
         <p className="text-sm text-muted">Set these with environment variables on your host (see README).</p>
         <ul className="mt-3 divide-y divide-border">
+          <li className="flex items-center justify-between gap-3 py-2 text-sm">
+            <span>
+              Site address
+              <span className="block text-xs text-muted">
+                {env.appUrlSource === "APP_URL"
+                  ? "From APP_URL. Email and Google login links use this."
+                  : env.appUrlSource === "vercel"
+                    ? "Detected from Vercel. Set APP_URL to override."
+                    : "APP_URL is not set, so email links point to localhost."}
+              </span>
+            </span>
+            <span className={`min-w-0 break-all text-right ${env.appUrlSource === "default" ? "text-muted" : "font-semibold text-success"}`}>
+              {env.appUrl}
+            </span>
+          </li>
           {services.map((s) => (
             <li key={s.name} className="flex items-center justify-between gap-3 py-2 text-sm">
               <span>

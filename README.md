@@ -187,12 +187,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
    ```
 4. Click **Deploy** and wait for the confetti (2–4 minutes).
 
-### Step 7 — Tell OAACI its address
-1. Copy your site address from Vercel (for example `https://oaaci.vercel.app`).
-2. In the project go to **Settings → Environment Variables**, add `APP_URL` with that address (no `/` at the end).
-3. Go to **Deployments**, open the ⋯ menu on the latest one and click **Redeploy**.
+### Step 7 — Check OAACI knows its address
+Email links and Google login use your site address. On Vercel it is picked up automatically (your own domain if you've added one, otherwise the `.vercel.app` address), so usually there is nothing to do. After Step 8 you can see it in **Admin → Site settings → Site address**.
 
-Email links and Google login use `APP_URL`, so do this before anyone signs up.
+To use a different address, add `APP_URL` in **Settings → Environment Variables** (for example `https://oaaci.vercel.app`), then go to **Deployments**, open the ⋯ menu on the latest one and click **Redeploy**.
 
 ### Step 8 — Become the admin and invite artists
 1. Open your site and click **Join OAACI**. Sign up with the email in `ADMIN_EMAILS` (no invite code needed).
@@ -204,8 +202,8 @@ Email links and Google login use `APP_URL`, so do this before anyone signs up.
 Push changes to the `main` branch on GitHub and Vercel deploys them automatically.
 
 ### Optional extras
-- **Your own domain** (e.g. `oaaci.in`, bought from any registrar): Vercel → **Settings → Domains** → add it and follow the DNS instructions, then change `APP_URL` and redeploy.
-- **Google login** — create an OAuth client at [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (type *Web application*), add `{APP_URL}/api/auth/google/callback` as an authorised redirect URI, then set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+- **Your own domain** (e.g. `oaaci.in`, bought from any registrar): Vercel → **Settings → Domains** → add it and follow the DNS instructions, then redeploy. If you set `APP_URL`, change it to the new domain too.
+- **Google login** — create an OAuth client at [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (type *Web application*), add `<your site address>/api/auth/google/callback` as an authorised redirect URI (the address shown in Admin → Site settings), then set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 - **Phone OTP** — SMS is not free. With a [Twilio](https://www.twilio.com) account set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM`. (Sending SMS to Indian numbers may require DLT registration.) Without it, phone login is hidden in production.
 - **Image moderation** — [Sightengine](https://sightengine.com) free tier: set `SIGHTENGINE_API_USER` and `SIGHTENGINE_API_SECRET`.
 
