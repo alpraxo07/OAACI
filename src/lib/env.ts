@@ -2,8 +2,9 @@ import "server-only";
 
 const isProd = process.env.NODE_ENV === "production";
 
+/** Reads a variable, ignoring surrounding spaces and quotes pasted in by mistake. */
 function value(name: string): string | undefined {
-  const v = process.env[name]?.trim();
+  const v = process.env[name]?.trim().replace(/^(["'])(.*)\1$/, "$2").trim();
   return v ? v : undefined;
 }
 
@@ -17,8 +18,8 @@ export const env = {
   appUrl: (value("APP_URL") ?? "http://localhost:3000").replace(/\/$/, ""),
   sessionSecret: sessionSecret ?? "dev-only-insecure-secret-change-me-please",
   adminEmails: (value("ADMIN_EMAILS") ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
+    .split(/[,;\s]+/)
+    .map((e) => e.replace(/["'<>]/g, "").trim().toLowerCase())
     .filter(Boolean),
 
   cloudinary:
